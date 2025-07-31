@@ -17,6 +17,8 @@ import {
   CheckSquare,
   Clock
 } from 'lucide-react';
+import {useRouter} from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 const modules = [
   {
@@ -94,8 +96,12 @@ const modules = [
 ];
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [currentTime, setCurrentTime] = useState('');
-
+  useEffect(() => {
+    if (!user) router.push("/auth");
+  }, [user]);
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
