@@ -1,95 +1,188 @@
+// import { NextRequest, NextResponse } from 'next/server';
+//
+// const QUIZ_API_KEY = 'eGSi48qrITclwgsFM8el7JpSqKXdhxRiOCmQ7isn';
+//
+// interface QuizQuestion {
+//   id: number;
+//   question: string;
+//   description?: string;
+//   answers: {
+//     [key: string]: string;
+//   };
+//   multiple_correct_answers: string;
+//   correct_answers: {
+//     [key: string]: string;
+//   };
+//   correct_answer?: string;
+//   explanation?: string;
+//   tip?: string;
+//   tags: Array<{
+//     name: string;
+//   }>;
+//   category: string;
+//   difficulty: string;
+// }
+//
+// export async function GET(request: NextRequest) {
+//
+//   const searchParams = request.nextUrl.searchParams;
+//   const subject = searchParams.get('subject') || 'general';
+//   const difficulty = searchParams.get('difficulty') || 'easy';
+//   const limit = searchParams.get('limit') || '10';
+//
+//   try {
+//
+//     const subjectMap: { [key: string]: string } = {
+//       linux: 'Linux',
+//       devops: 'DevOps',
+//       networking: 'Networking',
+//       programming: 'Programming',
+//       cloud: 'Cloud',
+//       docker: 'Docker',
+//       general: 'Linux'
+//     };
+//
+//     const apiSubject = subjectMap[subject.toLowerCase()] || 'Linux';
+//
+//     const url = new URL('https://quizapi.io/api/v1/questions');
+//     url.searchParams.append('apiKey', QUIZ_API_KEY);
+//     url.searchParams.append('limit', limit);
+//     url.searchParams.append('category', apiSubject);
+//     url.searchParams.append('difficulty', difficulty);
+//
+//     const response = await fetch(url.toString(), {
+//       method: 'GET',
+//       headers: {
+//         Accept: 'application/json',
+//       },
+//     });
+//
+//     console.log(response)
+//     if (!response.ok) {
+//       throw new Error('Failed to fetch quiz questions');
+//     }
+//
+//     const data: QuizQuestion[] = await response.json();
+//
+//     // Transform the data to a more usable format
+//     const transformedQuestions = data.map((question, index) => ({
+//       id: index + 1,
+//       question: question.question,
+//       options: Object.values(question.answers).filter(answer => answer !== null),
+//       correct_answer: question.correct_answer || Object.keys(question.correct_answers).find(key =>
+//         question.correct_answers[key] === 'true'
+//       )?.replace('_correct', ''),
+//       explanation: question.explanation || question.description,
+//       difficulty: question.difficulty,
+//       category: question.category,
+//       type: question.multiple_correct_answers === 'true' ? 'multiple' : 'single'
+//     }));
+//
+//     return NextResponse.json({
+//       success: true,
+//       questions: transformedQuestions,
+//       total: transformedQuestions.length
+//     });
+//   } catch (error) {
+//     console.error('Quiz API Error:', error);
+//
+//     // const sampleQuestions = generateSampleQuestions(subject, parseInt(limit));
+//
+//     return NextResponse.json({
+//       success: false,
+//       note: error
+//     });
+//   }
+// }
 import { NextRequest, NextResponse } from 'next/server';
 
-const QUIZ_API_KEY = '16LaKcwe1MzutRe9g8OeBLmh0H1DF6atOfo6lXdn';
-
-interface QuizQuestion {
-  id: number;
-  question: string;
-  description?: string;
-  answers: {
-    [key: string]: string;
-  };
-  multiple_correct_answers: string;
-  correct_answers: {
-    [key: string]: string;
-  };
-  correct_answer?: string;
-  explanation?: string;
-  tip?: string;
-  tags: Array<{
-    name: string;
-  }>;
-  category: string;
-  difficulty: string;
-}
+export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const subject = searchParams.get('subject') || 'general';
+  const subject = searchParams.get('subject') || 'JavaScript';
   const difficulty = searchParams.get('difficulty') || 'easy';
-  const limit = searchParams.get('limit') || '20';
+  const limit = parseInt(searchParams.get('limit') || '3');
+
+  const prompt = `Generate ${limit} ${subject} multiple-choice questions of ${difficulty} difficulty. Each question must have 4 options and only one correct answer.
+
+    Respond strictly in JSON array format ONLY. Do not include any extra text, explanation, notes, speech, or markdown formatting. The format must look exactly like this:
+    
+    [
+      {
+        "id": 1,
+        "question": "Your question here?",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correct_answer": "Option A"
+        "category": "english",
+        "difficulty": "Easy",
+        "explanation":"explain the answer in 1 to 2 lines"
+      },
+      ...
+    ]
+    `;
 
   try {
-    // Map subjects to API categories/tags
-    const subjectMap: { [key: string]: string } = {
-      'math': 'Math',
-      'physics': 'Science',
-      'chemistry': 'Science', 
-      'biology': 'Science',
-      'english': 'English',
-      'general': 'General Knowledge'
-    };
+    const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'deepseek-ai/DeepSeek-R1:together',
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        stream: false,
+      }),
+    });
 
-    const apiSubject = subjectMap[subject.toLowerCase()] || 'General Knowledge';
-    
-    const response = await fetch(
-      `https://quizapi.io/api/v1/questions?apiKey=${QUIZ_API_KEY}&limit=${limit}&category=${apiSubject}&difficulty=${difficulty}`,
-      {
-        headers: {
-          'Accept': 'application/json',
-        },
+    const json = await response.json();
+    const content = json.choices?.[0]?.message?.content || '';
+    console.log(content);
+    let questions = [];
+
+    try {
+
+      const startIndex = content.indexOf('[');
+      const endIndex = content.lastIndexOf(']');
+
+      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+        const jsonString = content.slice(startIndex, endIndex + 1);
+        const cleanString = jsonString
+            .replace(/```json|```/g, '')
+            .replace(/\\n/g, '')
+            .trim();
+
+        questions = JSON.parse(cleanString);
+      } else {
+        console.warn('No valid JSON array found in content');
+        console.log('Raw response content:', content);
       }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch quiz questions');
+    } catch (parseErr) {
+      console.error('Failed to parse JSON from model output:', parseErr);
+      console.log('Model raw output:', content);
     }
 
-    const data: QuizQuestion[] = await response.json();
-    
-    // Transform the data to a more usable format
-    const transformedQuestions = data.map((question, index) => ({
-      id: index + 1,
-      question: question.question,
-      options: Object.values(question.answers).filter(answer => answer !== null),
-      correct_answer: question.correct_answer || Object.keys(question.correct_answers).find(key => 
-        question.correct_answers[key] === 'true'
-      )?.replace('_correct', ''),
-      explanation: question.explanation || question.description,
-      difficulty: question.difficulty,
-      category: question.category,
-      type: question.multiple_correct_answers === 'true' ? 'multiple' : 'single'
-    }));
-
     return NextResponse.json({
       success: true,
-      questions: transformedQuestions,
-      total: transformedQuestions.length
+      questions,
+      total: questions.length,
     });
   } catch (error) {
-    console.error('Quiz API Error:', error);
-    
-    // Fallback to sample questions if API fails
-    const sampleQuestions = generateSampleQuestions(subject, parseInt(limit));
-    
+    console.error('Hugging Face API Error:', error);
+
     return NextResponse.json({
-      success: true,
-      questions: sampleQuestions,
-      total: sampleQuestions.length,
-      note: 'Using sample questions due to API limitations'
+      success: false,
+      error: 'Failed to fetch questions',
     });
   }
 }
+
 
 function generateSampleQuestions(subject: string, count: number) {
   const sampleQuestions = {
