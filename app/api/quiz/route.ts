@@ -1,7 +1,120 @@
-// import { NextRequest, NextResponse } from 'next/server';
-//
-// const QUIZ_API_KEY = 'eGSi48qrITclwgsFM8el7JpSqKXdhxRiOCmQ7isn';
-//
+
+"use server";
+
+import { NextRequest, NextResponse } from 'next/server';
+import { connect } from "@/dbConfig/dbConfig";
+import { MCQ } from '@/models/MCQ';
+
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const subject = searchParams.get('subject') || 'JavaScript';
+  const level = searchParams.get('level') || '';
+  const difficulty = searchParams.get('difficulty') || 'easy';
+  const limit = parseInt(searchParams.get('limit') || '10');
+  const prompt = `Generate ${limit} ${subject} multiple-choice questions of ${difficulty} difficulty for level ${level}. Each question must have 4 options and only one correct answer.
+    Respond strictly in JSON array format ONLY. Do not include any extra text, explanation, notes, speech, or markdown formatting. The format must look exactly like this:
+   
+    [
+      {
+        "id": 1,
+        "question": "Your question here?",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correct_answer": "Option A"
+        "category": "english",
+        "difficulty": "Easy",
+        "explanation":"explain the answer in 1 to 2 lines"
+      },
+      ...
+    ]
+    `;
+
+  try {
+    const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'deepseek-ai/DeepSeek-R1:together',
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        stream: false,
+      }),
+    });
+
+    const json = await response.json();
+    console.log(json)
+    const content = json.choices?.[0]?.message?.content || '';
+    console.log(content);
+    let questions = [];
+
+    try {
+
+      const startIndex = content.indexOf('[');
+      const endIndex = content.lastIndexOf(']');
+
+      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+        const jsonString = content.slice(startIndex, endIndex + 1);
+        const cleanString = jsonString
+            .replace(/```json|```/g, '')
+            .replace(/\\n/g, '')
+            .trim();
+
+        questions = JSON.parse(cleanString);
+      } else {
+        console.warn('No valid JSON array found in content');
+        console.log('Raw response content:', content);
+      }
+    } catch (parseErr) {
+      console.error('Failed to parse JSON from model output:', parseErr);
+      console.log('Model raw output:', content);
+    }
+    storeUniqueMCQs(questions,level);
+    return NextResponse.json({
+      success: true,
+      questions,
+      total: questions.length,
+    });
+  } catch (error) {
+    console.error('Hugging Face API Error:', error);
+
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch questions',
+    });
+  }
+}
+async function storeUniqueMCQs(questions: any[],level :any) {
+  try {
+    await connect();
+
+    for (const mcq of questions) {
+      const exists = await MCQ.findOne({ question: mcq.question });
+      if (!exists) {
+        const newMCQ = new MCQ({
+          question: mcq.question,
+          options: mcq.options,
+          correct_answer: mcq.correct_answer,
+          explanation: mcq.explanation,
+          difficulty: mcq.difficulty,
+          category: mcq.category,
+          level: level,
+        });
+        await newMCQ.save();
+      }
+    }
+    console.log("all mcqs saved")
+  } catch (err) {
+    console.error('DB insert error:', err);
+  }
+}
+
 // interface QuizQuestion {
 //   id: number;
 //   question: string;
@@ -94,151 +207,3 @@
 //     });
 //   }
 // }
-import { NextRequest, NextResponse } from 'next/server';
-
-export const runtime = 'edge';
-
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const subject = searchParams.get('subject') || 'JavaScript';
-  const difficulty = searchParams.get('difficulty') || 'easy';
-  const limit = parseInt(searchParams.get('limit') || '3');
-
-  const prompt = `Generate ${limit} ${subject} multiple-choice questions of ${difficulty} difficulty. Each question must have 4 options and only one correct answer.
-
-    Respond strictly in JSON array format ONLY. Do not include any extra text, explanation, notes, speech, or markdown formatting. The format must look exactly like this:
-    
-    [
-      {
-        "id": 1,
-        "question": "Your question here?",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "correct_answer": "Option A"
-        "category": "english",
-        "difficulty": "Easy",
-        "explanation":"explain the answer in 1 to 2 lines"
-      },
-      ...
-    ]
-    `;
-
-  try {
-    const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-R1:together',
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        stream: false,
-      }),
-    });
-
-    const json = await response.json();
-    const content = json.choices?.[0]?.message?.content || '';
-    console.log(content);
-    let questions = [];
-
-    try {
-
-      const startIndex = content.indexOf('[');
-      const endIndex = content.lastIndexOf(']');
-
-      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-        const jsonString = content.slice(startIndex, endIndex + 1);
-        const cleanString = jsonString
-            .replace(/```json|```/g, '')
-            .replace(/\\n/g, '')
-            .trim();
-
-        questions = JSON.parse(cleanString);
-      } else {
-        console.warn('No valid JSON array found in content');
-        console.log('Raw response content:', content);
-      }
-    } catch (parseErr) {
-      console.error('Failed to parse JSON from model output:', parseErr);
-      console.log('Model raw output:', content);
-    }
-
-    return NextResponse.json({
-      success: true,
-      questions,
-      total: questions.length,
-    });
-  } catch (error) {
-    console.error('Hugging Face API Error:', error);
-
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch questions',
-    });
-  }
-}
-
-
-function generateSampleQuestions(subject: string, count: number) {
-  const sampleQuestions = {
-    math: [
-      {
-        id: 1,
-        question: "What is the value of x in the equation 2x + 5 = 15?",
-        options: ["5", "10", "7.5", "2.5"],
-        correct_answer: "5",
-        explanation: "Solve: 2x + 5 = 15, so 2x = 10, therefore x = 5",
-        difficulty: "medium",
-        category: "Algebra"
-      },
-      {
-        id: 2,
-        question: "What is the derivative of x²?",
-        options: ["x", "2x", "x²", "2"],
-        correct_answer: "2x",
-        explanation: "The derivative of x² is 2x using the power rule",
-        difficulty: "easy",
-        category: "Calculus"
-      }
-    ],
-    physics: [
-      {
-        id: 1,
-        question: "What is the unit of force in SI system?",
-        options: ["Newton", "Joule", "Watt", "Pascal"],
-        correct_answer: "Newton",
-        explanation: "Newton (N) is the SI unit of force, named after Isaac Newton",
-        difficulty: "easy",
-        category: "Mechanics"
-      },
-      {
-        id: 2,
-        question: "What is the speed of light in vacuum?",
-        options: ["3 × 10⁸ m/s", "3 × 10⁶ m/s", "3 × 10¹⁰ m/s", "3 × 10⁹ m/s"],
-        correct_answer: "3 × 10⁸ m/s",
-        explanation: "The speed of light in vacuum is approximately 3 × 10⁸ meters per second",
-        difficulty: "medium",
-        category: "Optics"
-      }
-    ],
-    general: [
-      {
-        id: 1,
-        question: "What is the capital of Pakistan?",
-        options: ["Karachi", "Lahore", "Islamabad", "Rawalpindi"],
-        correct_answer: "Islamabad",
-        explanation: "Islamabad is the capital city of Pakistan",
-        difficulty: "easy",
-        category: "Geography"
-      }
-    ]
-  };
-
-  const questions = sampleQuestions[subject as keyof typeof sampleQuestions] || sampleQuestions.general;
-  return questions.slice(0, Math.min(count, questions.length));
-}

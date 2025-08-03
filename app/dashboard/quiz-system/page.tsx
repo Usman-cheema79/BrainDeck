@@ -38,12 +38,33 @@ export default function QuizSystemPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [questionCount, setQuestionCount] = useState('20');
 
-  const handleStartQuiz = () => {
+  const handleStartQuiz = async () => {
     if (selectedExam && selectedSubject && selectedDifficulty) {
-      // Navigate to quiz taking page
-      console.log('Starting quiz with:', { selectedExam, selectedSubject, selectedDifficulty, questionCount });
+      try {
+        const response = await fetch(
+            `/api/quiz?subject=${selectedSubject}&difficulty=${selectedDifficulty}&limit=${questionCount}&level=${selectedExam}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch quiz data');
+        }
+
+        const data = await response.json();
+        console.log(data);
+      } catch (error) {
+        console.error('Error fetching quiz:', error);
+      }
+    } else {
+      console.warn("Please select exam, subject, and difficulty first.");
     }
   };
+
 
   const selectedExamData = examTypes.find(exam => exam.id === selectedExam);
 

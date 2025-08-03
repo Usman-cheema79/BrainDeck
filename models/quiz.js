@@ -2,7 +2,7 @@ import mongoose from "mongoose"
 
 const quizSchema = new mongoose.Schema({
    subject: String,
-  level: String, // e.g., '10th', 'FSc', 'CSS'
+  level: String,
   questions: [
     {
       question: String,
