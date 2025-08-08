@@ -8,10 +8,26 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Play, BookOpen, Clock, Users, Award } from 'lucide-react';
 import Link from 'next/link';
-
+import { useRouter } from "next/navigation";
+import { useQuizStore } from "@/app/store/quizStore";
+import  DynamicAlert from "@/components/Alert"
 const examTypes = [
   { id: 'matric', name: 'Matriculation (9th-10th)', subjects: ['Math', 'Physics', 'Chemistry', 'Biology', 'English', 'Urdu'] },
-  { id: 'inter', name: 'Intermediate (11th-12th)', subjects: ['Math', 'Physics', 'Chemistry', 'Biology', 'English', 'Urdu'] },
+  {
+    id: 'programming',
+    name: 'Programming Technologies',
+    subjects: [
+      'Linux',
+      'DevOps',
+      'Docker',
+      'HTML',
+      'JavaScript',
+      'React',
+      'NodeJS',
+      'Laravel',
+      'Django'
+    ]
+  },  { id: 'inter', name: 'Intermediate (11th-12th)', subjects: ['Math', 'Physics', 'Chemistry', 'Biology', 'English', 'Urdu'] },
   { id: 'css', name: 'CSS (Central Superior Services)', subjects: ['General Knowledge', 'Pakistan Affairs', 'Islamic Studies', 'English'] },
   { id: 'ppsc', name: 'PPSC (Punjab Public Service)', subjects: ['General Knowledge', 'Current Affairs', 'Pakistan Studies', 'English'] },
   { id: 'nts', name: 'NTS (National Testing Service)', subjects: ['Analytical Reasoning', 'Quantitative', 'English', 'General Knowledge'] },
@@ -37,8 +53,14 @@ export default function QuizSystemPage() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [questionCount, setQuestionCount] = useState('20');
-
+  const [alert, setAlert] = useState<{
+    type: "success" | "error" | "warning";
+    title: string;
+    description: string;
+  } | null>(null);
+  const router = useRouter();
   const handleStartQuiz = async () => {
+
     if (selectedExam && selectedSubject && selectedDifficulty) {
       try {
         const response = await fetch(
@@ -56,11 +78,33 @@ export default function QuizSystemPage() {
         }
 
         const data = await response.json();
+        if (data.questions){
+          useQuizStore.getState().setQuiz(data.questions, 600);
+          router.push("/dashboard/quiz-system/quiz");
+        }else {
+          setAlert({
+            type: "error",
+            title: "No Questions Found",
+            description: "Please try again later or select a different quiz."
+          });
+
+        }
+
         console.log(data);
       } catch (error) {
         console.error('Error fetching quiz:', error);
+        setAlert({
+          type: "error",
+          title: "No Questions Found",
+          description: String(error)
+        });
       }
     } else {
+      setAlert({
+        type: "error",
+        title: "No Questions Found",
+        description: "Please select exam, subject, and difficulty first."
+      });
       console.warn("Please select exam, subject, and difficulty first.");
     }
   };
@@ -72,6 +116,15 @@ export default function QuizSystemPage() {
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
+        {alert && (
+            <DynamicAlert
+                type={alert.type}
+                title={alert.title}
+                description={alert.description}
+                duration={3000}
+                onClose={() => setAlert(null)}
+            />
+        )}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
             <Link href="/dashboard">
