@@ -12,8 +12,12 @@ interface StudyTimeRecord {
 function formatDuration(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return h > 0 ? `${h}h${m > 0 ? ' ' + m + 'min' : ''}` : `${m}min`;
+
+  const hh = h.toString().padStart(2, '0');
+  const mm = m.toString().padStart(2, '0');
+  return `${hh}:${mm} hour`;
 }
+
 
 function calculateStats(records: StudyTimeRecord[]) {
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -65,7 +69,7 @@ export default function QuickStats({ records }: { records: StudyTimeRecord[] }) 
       change: statsValues.changePercent,
       color: 'text-blue-500'
     },
-    // ... add Goals Completed and Current Streak with your logic or props
+
     {
       icon: Target,
       label: 'Goals Completed',
