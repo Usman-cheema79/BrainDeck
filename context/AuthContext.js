@@ -3,12 +3,14 @@
     import { createContext, useContext, useEffect, useState } from "react";
     import { onAuthStateChanged, signOut } from "firebase/auth";
     import { auth } from "@/lib/firebase/firebase";
+    import { useRouter } from "next/navigation";
 
     const AuthContext = createContext();
 
 
     const AUTO_LOGOUT_TIME = 5 * 60 * 1000;
     function useCurrentMinute() {
+
         const [minute, setMinute] = useState(new Date().getMinutes());
 
         useEffect(() => {
@@ -22,6 +24,7 @@
         return minute;
     }
     export const AuthProvider = ({ children }) => {
+        const router = useRouter();
         const [user, setUser] = useState(null);
         const [fullUserData, setFullUserData] = useState(null);
         const [loading, setLoading] = useState(true);
@@ -70,9 +73,6 @@
             fetchUserData();
         }, [user]);
 
-
-
-
         useEffect(() => {
             if (!user) return;
 
@@ -82,13 +82,9 @@
                 if (timer) clearTimeout(timer);
                 timer = setTimeout(() => {
                     signOut(auth);
-                    alert("You have been logged out due to inactivity.");
+                    router.push("/auth");
                 }, AUTO_LOGOUT_TIME);
             };
-
-
-
-
 
             events.forEach((event) => window.addEventListener(event, resetTimer));
 

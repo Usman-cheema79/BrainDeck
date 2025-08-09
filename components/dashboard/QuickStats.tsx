@@ -6,17 +6,22 @@ import { useMemo } from 'react';
 
 interface StudyTimeRecord {
   date: string;
-  duration: number; // minutes
+  duration: number;
 }
 
 function formatDuration(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
 
-  const hh = h.toString().padStart(2, '0');
-  const mm = m.toString().padStart(2, '0');
-  return `${hh}:${mm} hour`;
+  if (h > 0) {
+    const hh = h.toString().padStart(2, '0');
+    const mm = m.toString().padStart(2, '0');
+    return `${hh}:${mm} hour`;
+  } else {
+    return `${m} min`;
+  }
 }
+
 
 
 function calculateStats(records: StudyTimeRecord[]) {
