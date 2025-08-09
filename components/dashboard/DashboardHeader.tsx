@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 
 export default function DashboardHeader() {
-  console.log('user');
   const [user, setUser] = useState<User | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();

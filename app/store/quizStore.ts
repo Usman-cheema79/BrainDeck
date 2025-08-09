@@ -16,12 +16,15 @@ interface QuizState {
     currentIndex: number;
     selectedAnswers: Record<number, string>;
     isQuizActive: boolean;
+    attemptId: string | null;
+
     setQuiz: (questions: Question[], duration: number) => void;
     selectAnswer: (index: number, answer: string) => void;
     nextQuestion: () => void;
     prevQuestion: () => void;
     endQuiz: () => void;
     endTime: number | null;
+    setAttemptId: (id: string) => void;
 }
 
 export const useQuizStore = create<QuizState>()(
@@ -30,6 +33,7 @@ export const useQuizStore = create<QuizState>()(
             questions: [],
             currentIndex: 0,
             selectedAnswers: {},
+            attemptId: null,
             isQuizActive: false,
             endTime: null,
             setQuiz: (questions, duration) =>
@@ -52,6 +56,7 @@ export const useQuizStore = create<QuizState>()(
                     isQuizActive: false,
                     endTime: Date.now(),
                 })),
+            setAttemptId: (id: string) => set({ attemptId: id }),
         }),
         {
             name: 'quiz-storage',

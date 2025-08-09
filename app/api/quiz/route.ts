@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connect } from "@/dbConfig/dbConfig";
 import { MCQ } from '@/models/MCQ';
-
+import  QuizResult  from '@/models/QuizResult';
 interface QuizQuestion {
   id: number;
   question: string;
@@ -195,7 +195,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // console.log(transformedQuestions);
     storeUniqueMCQs(transformedQuestions, level);
 
     return NextResponse.json({
@@ -235,5 +234,45 @@ async function storeUniqueMCQs(questions: any[],level :any) {
     console.log("all mcqs saved")
   } catch (err) {
     console.error('DB insert error:', err);
+  }
+}
+export async function POST(request: NextRequest) {
+  try {
+    await connect();
+    const data = await request.json();
+
+
+    if (!data.userId || !data.startTime || !data.endTime || !data.questions) {
+      return NextResponse.json({ success: false, message: 'Missing required fields' }, { status: 400 });
+    }
+    console.log("data.attemptId",data.attemptId)
+    const exists = await QuizResult.findOne({ attemptId: data.attemptId });
+    if (exists) {
+      return NextResponse.json({ success: false, message: 'Quiz result already saved.' }, { status: 409 });
+    }
+    const quizResult = new QuizResult({
+      userId: data.userId,
+      examType: data.examType,
+      subject: data.subject,
+      difficulty: data.difficulty,
+      startTime: new Date(data.startTime),
+      endTime: new Date(data.endTime),
+      totalQuestions: data.totalQuestions,
+      solvedQuestions: data.solvedQuestions,
+      totalTimeTaken: data.totalTimeTaken,
+      totalMarks: data.totalMarks,
+      obtainedMarks: data.obtainedMarks,
+      questions: data.questions,
+      isPassed: data.isPassed,
+      percentage: data.percentage,
+      attemptId: data.attemptId,
+    });
+
+    const savedResult = await quizResult.save();
+
+    return NextResponse.json({ success: true, data: savedResult }, { status: 201 });
+  } catch (error) {
+    console.error('Error saving quiz result:', error);
+    return NextResponse.json({ success: false, message: 'Server Error' }, { status: 500 });
   }
 }

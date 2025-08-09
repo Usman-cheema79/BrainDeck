@@ -1,4 +1,4 @@
-import quiz from "@/models/quiz";
+import quiz from "@/models/QuizResult";
 import { connect } from "@/dbConfig/dbConfig";
 // import { authorize } from "@/middleware/authorize";
 import { type NextRequest, NextResponse } from "next/server";

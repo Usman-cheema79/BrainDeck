@@ -26,13 +26,13 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [tab, setTab] = useState("login");
   const [error, setError] = useState("");
-  const [userData, setUserData] = useState({ email: "", password: "", name: "" });
+  const [userData, setUserData] = useState({ email: "", password: "", name: "",role: "student" });
 
   // useEffect(() => {
   //   if (user) router.push("/dashboard");
   // }, [user]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setUserData({ ...userData, [e.target.id]: e.target.value });
   };
 
@@ -45,7 +45,22 @@ export default function AuthPage() {
       if (tab === "login") {
         await signInWithEmailAndPassword(auth, userData.email, userData.password);
       } else {
-        await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+        const firebaseUser = userCredential.user;
+
+
+        await fetch("/api/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            uid: firebaseUser.uid,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+          }),
+        });
       }
       router.push("/dashboard");
     } catch (err: any) {
@@ -57,7 +72,21 @@ export default function AuthPage() {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = result.user;
+
+      await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.displayName,
+          role: "student",
+        }),
+      });
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
@@ -143,22 +172,39 @@ export default function AuthPage() {
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
                       <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input id="name" type="text" placeholder="Enter your full name" className="pl-10" required onChange={handleChange} />
+                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/>
+                        <Input id="name" type="text" placeholder="Enter your full name" className="pl-10" required
+                               onChange={handleChange}/>
                       </div>
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <select
+                          id="role"
+                          value={userData.role}
+                          onChange={handleChange}
+                          className="w-full p-2 border rounded"
+                          required
+                      >
+                        <option value="student">Student</option>
+                        <option value="teacher">Teacher</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input id="email" type="email" placeholder="Enter your email" className="pl-10" required onChange={handleChange} />
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/>
+                        <Input id="email" type="email" placeholder="Enter your email" className="pl-10" required
+                               onChange={handleChange}/>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password">Password</Label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input id="password" type="password" placeholder="Create a password" className="pl-10" required onChange={handleChange} />
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"/>
+                        <Input id="password" type="password" placeholder="Create a password" className="pl-10" required
+                               onChange={handleChange}/>
                       </div>
                     </div>
                     {error && <p className="text-sm text-red-500">{error}</p>}

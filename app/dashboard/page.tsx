@@ -98,6 +98,8 @@ const modules = [
 export default function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
+  const { fullUserData } = useAuth();
+  const records = fullUserData?.loginHistory || [];
   const [currentTime, setCurrentTime] = useState('');
   useEffect(() => {
     if (!user) router.push("/auth");
@@ -145,7 +147,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Stats */}
-        <QuickStats />
+        <QuickStats records={records} />
 
         {/* Modules Grid */}
         <div className="mb-8">

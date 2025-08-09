@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     title: 'BrainDeck - AI-Powered Study & Interview Companion',
     description: 'Your all-in-one platform for exam preparation, interview practice, and academic success with AI-powered tools.',
     icons: {
-        icon: '/brain.svg?v=2', // v=2 busts cache
+        icon: '/brain.svg?v=2',
     },
 };
 

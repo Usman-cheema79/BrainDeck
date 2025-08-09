@@ -11,6 +11,10 @@ import Link from 'next/link';
 import { useRouter } from "next/navigation";
 import { useQuizStore } from "@/app/store/quizStore";
 import  DynamicAlert from "@/components/Alert"
+import QuizSkeleton from "@/components/Skeleton-loading"
+import mongoose from 'mongoose';
+
+
 const examTypes = [
   { id: 'matric', name: 'Matriculation (9th-10th)', subjects: ['Math', 'Physics', 'Chemistry', 'Biology', 'English', 'Urdu'] },
   {
@@ -53,6 +57,7 @@ export default function QuizSystemPage() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [questionCount, setQuestionCount] = useState('20');
+  const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState<{
     type: "success" | "error" | "warning";
     title: string;
@@ -63,6 +68,7 @@ export default function QuizSystemPage() {
 
     if (selectedExam && selectedSubject && selectedDifficulty) {
       try {
+        setLoading(true);
         const response = await fetch(
             `/api/quiz?subject=${selectedSubject}&difficulty=${selectedDifficulty}&limit=${questionCount}&level=${selectedExam}`,
             {
@@ -80,6 +86,8 @@ export default function QuizSystemPage() {
         const data = await response.json();
         if (data.questions){
           useQuizStore.getState().setQuiz(data.questions, 600);
+          const attemptId = new mongoose.Types.ObjectId().toString();
+          useQuizStore.setState({ attemptId });
           router.push("/dashboard/quiz-system/quiz");
         }else {
           setAlert({
@@ -98,6 +106,9 @@ export default function QuizSystemPage() {
           title: "No Questions Found",
           description: String(error)
         });
+      } finally
+      {
+        setLoading(false);
       }
     } else {
       setAlert({
@@ -111,20 +122,23 @@ export default function QuizSystemPage() {
 
 
   const selectedExamData = examTypes.find(exam => exam.id === selectedExam);
-
+  if (loading) {
+    return <QuizSkeleton />;
+  }
   return (
     <div className="min-h-screen bg-background">
+      {alert && (
+          <DynamicAlert
+              type={alert.type}
+              title={alert.title}
+              description={alert.description}
+              duration={3000}
+              onClose={() => setAlert(null)}
+          />
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        {alert && (
-            <DynamicAlert
-                type={alert.type}
-                title={alert.title}
-                description={alert.description}
-                duration={3000}
-                onClose={() => setAlert(null)}
-            />
-        )}
+
+
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
             <Link href="/dashboard">
@@ -217,9 +231,9 @@ export default function QuizSystemPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="10">10 Questions</SelectItem>
-                      <SelectItem value="20">20 Questions</SelectItem>
-                      <SelectItem value="30">30 Questions</SelectItem>
-                      <SelectItem value="50">50 Questions</SelectItem>
+                      {/*<SelectItem value="20">20 Questions</SelectItem>*/}
+                      {/*<SelectItem value="30">30 Questions</SelectItem>*/}
+                      {/*<SelectItem value="50">50 Questions</SelectItem>*/}
                     </SelectContent>
                   </Select>
                 </div>

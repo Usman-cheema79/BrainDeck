@@ -4,15 +4,18 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
-
+import mongoose from 'mongoose';
+import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 export default function ResultsPage() {
+    const { fullUserData } = useAuth();
     const router = useRouter();
     const { questions, selectedAnswers } = useQuizStore();
-
+    const [isSaved, setIsSaved] = useState(false);
 
     useEffect(() => {
         if (!questions.length) {
-            // router.push("/");
+            router.push("/");
         }
     }, [questions, router]);
 
@@ -23,6 +26,67 @@ export default function ResultsPage() {
     const percentage = ((correctCount / total) * 100).toFixed(2);
     const totalQuestions = questions.length;
     // useQuizStore.getState().endQuiz();
+    const prepareResultData = () => {
+        const attemptId = useQuizStore.getState().attemptId;
+        const data = {
+            userId: fullUserData?._id || "",
+            attemptId: attemptId,
+            examType: "final",
+            subject: questions[0]?.category || "N/A",
+            difficulty: questions[0]?.difficulty || "",
+            startTime: new Date(Date.now() - 600000).toISOString(),
+            endTime: new Date().toISOString(),
+            totalQuestions,
+            solvedQuestions: Object.values(selectedAnswers).filter(Boolean).length,
+            totalTimeTaken: 600,
+            totalMarks: totalQuestions,
+            obtainedMarks: correctCount,
+            questions: questions.map((q, i) => ({
+                questionId: new mongoose.Types.ObjectId().toString(),
+                questionText: q.question,
+                options: q.options,
+                correctAnswer: q.correct_answer,
+                selectedAnswer: selectedAnswers[i],
+                explanation: q.explanation || "",
+            })),
+            isPassed: Number(percentage) >= 50,
+            percentage: Number(percentage),
+        };
+        return data;
+    };
+
+    async function saveQuizResult() {
+        if (isSaved) return;
+        setIsSaved(true);
+
+        const data = prepareResultData();
+        // console.log(data)
+        try {
+            const res = await fetch(
+                `/api/quiz`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                }
+            );
+
+            const json = await res.json();
+
+            if (res.ok && json.success) {
+                // console.log(json)
+            } else {
+                // console.log(json)
+            }
+        } catch (error) {
+            console.log("fail to save quiz in DB:",error)
+        }
+    }
+    useEffect(() => {
+        saveQuizResult();
+    }, []);
     return (
         <div className="max-w-3xl mx-auto p-6">
             <h1 className="text-3xl font-bold mb-4">Quiz Results</h1>
@@ -113,15 +177,15 @@ export default function ResultsPage() {
                 })}
             </div>
             <div className="mt-6 flex gap-4">
-                <Button onClick={() => router.push("/")}>Go Home</Button>
-                <Button
-                    variant="outline"
-                    onClick={() => {
-                        router.push("/dashboard/quiz-system/quiz");
-                    }}
-                >
-                    Retake Quiz
-                </Button>
+                <Button onClick={() => router.push("/dashboard")}>Go Home</Button>
+                {/*<Button*/}
+                {/*    variant="outline"*/}
+                {/*    onClick={() => {*/}
+                {/*        router.push("/dashboard/quiz-system/quiz");*/}
+                {/*    }}*/}
+                {/*>*/}
+                {/*    Retake Quiz*/}
+                {/*</Button>*/}
             </div>
 
         </div>
