@@ -6,12 +6,27 @@
 
     const AuthContext = createContext();
 
-    const AUTO_LOGOUT_TIME = 5 * 60 * 1000;
 
+    const AUTO_LOGOUT_TIME = 5 * 60 * 1000;
+    function useCurrentMinute() {
+        const [minute, setMinute] = useState(new Date().getMinutes());
+
+        useEffect(() => {
+            const interval = setInterval(() => {
+                setMinute(new Date().getMinutes());
+            }, 10 * 1000);
+
+            return () => clearInterval(interval);
+        }, []);
+
+        return minute;
+    }
     export const AuthProvider = ({ children }) => {
         const [user, setUser] = useState(null);
         const [fullUserData, setFullUserData] = useState(null);
         const [loading, setLoading] = useState(true);
+        const events = ["mousemove", "keydown", "scroll", "touchstart"];
+        const minute = useCurrentMinute();
 
         useEffect(() => {
             const unsub = onAuthStateChanged(auth, (firebaseUser) => {
@@ -21,6 +36,15 @@
             return () => unsub();
         }, []);
 
+        useEffect(() => {
+            if (!user) return;
+
+            fetch("/api/users/login-duration", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: user.email, durationMinutes: 1 }),
+            }).catch((err) => console.error("Error updating login duration:", err));
+        }, [minute]);
 
         useEffect(() => {
             const fetchUserData = async () => {
@@ -46,33 +70,7 @@
             fetchUserData();
         }, [user]);
 
-        useEffect(() => {
-            if (!user) {
-                localStorage.removeItem("loginStartTime");
-                return;
-            }
 
-            const now = Date.now();
-            const storedStart = localStorage.getItem("loginStartTime");
-            let durationMinutes = 0;
-
-            if (storedStart) {
-                const startTime = parseInt(storedStart, 10);
-                durationMinutes = Math.floor((now - startTime) / (1000 * 60));
-            }
-
-            if (durationMinutes){
-                fetch("/api/users/login-duration", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: user.email, durationMinutes }),
-                }).catch(err => console.error("Error updating login duration:", err));
-            }
-
-
-            localStorage.setItem("loginStartTime", now.toString());
-
-        }, [user]);
 
 
         useEffect(() => {
@@ -90,7 +88,7 @@
 
 
 
-            const events = ["mousemove", "keydown", "scroll", "touchstart"];
+
 
             events.forEach((event) => window.addEventListener(event, resetTimer));
 
@@ -101,7 +99,7 @@
                 events.forEach((event) => window.removeEventListener(event, resetTimer));
             };
         }, [user]);
-        console.log(fullUserData)
+        // console.log(fullUserData)
         if (loading) {
             return (
                 <div className="h-screen flex items-center justify-center bg-black">
